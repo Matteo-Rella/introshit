@@ -1,12 +1,22 @@
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_array, load_img
 import os
 import cv2  # Libreria OpenCV per il caricamento e la manipolazione delle immagini (installabile con pip install opencv-python)
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
+def plot_confusion_matrix(true_labels, predicted_labels, classes):
+    cm = confusion_matrix(true_labels, predicted_labels)
+    plt.figure(figsize=(10, 7))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=classes, yticklabels=classes)
+    plt.title('Confusion Matrix')
+    plt.ylabel('True Label')
+    plt.xlabel('Predicted Label')
+    plt.show()
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
@@ -214,7 +224,8 @@ plt.show()
 
 
 # Valutazione del modello sul set di test
-mnist_test_loss, mnist_test_accuracy = mlp_model.evaluate(test_x, test_y_int, verbose=0)
+
+mnist_test_loss, mnist_test_accuracy = mlp_model.evaluate(test_x, to_categorical(test_y_int, num_classes=2), verbose=0)
 print('Test accuracy: ', mnist_test_accuracy)
 
 # Predizioni sul test set
@@ -222,34 +233,59 @@ y_pred_mnist_prob = mlp_model.predict(test_x)
 y_pred_mnist = np.argmax(y_pred_mnist_prob, axis=1)
 
 # Matrice di confusione
-conf_matrix = confusion_matrix(test_y, y_pred_mnist)
-ConfusionMatrixDisplay(conf_matrix, display_labels=np.arange(10)).plot(colorbar=True, cmap='viridis')
+classes=["benigno" , "maligno"]
+conf_matrix = confusion_matrix(np.array(test_y_int), y_pred_mnist)
+plot_confusion_matrix(np.array(test_y_int), y_pred_mnist,classes)
+#ConfusionMatrixDisplay(conf_matrix, display_labels=np.arange(10)).plot(colorbar=True, cmap='viridis')
 
 
-cm = confusion_matrix(test_y_int, y_pred_mnist)
-plt.figure(figsize=(10, 7))
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=classes, yticklabels=classes)
-plt.title("Matrice di Confusione (MNIST)")
-plt.ylabel('True Label')
-plt.xlabel('Predicted Label')
-plt.show()
+
 # train_loss = history.history['loss']
 # val_loss = history.history['val_loss']
 
 # CREAZIONE DEL MODELLO CNN
-# cnn_model = tf.keras.models.Sequential([
-#    tf.keras.layers.Conv2D(32, (3, 3), activation='relu', input_shape=(128, 128, 3)),
-#    tf.keras.layers.MaxPooling2D((2, 2)),
-#    tf.keras.layers.Flatten(),
-#    tf.keras.layers.Dense(2, activation='softmax')
-# ])
-# COMPILAZIONE DEL MODELLO
-# ADDESTRAMENTO DEL MODELLO
-# history = cnn_model.fit(
+cnn_model = tf.keras.models.Sequential([
+    tf.keras.layers.Conv2D(32, (3, 3), activation='relu', input_shape=(128, 128, 3)),
+    tf.keras.layers.MaxPooling2D((3, 3)),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+cnn_model.summary()
+
+
+# Compilare il modello
+lr = 0.01
+cnn_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
+              loss=tf.keras.losses.CategoricalCrossentropy(),
+              metrics=['accuracy'])
+
+# Addestramento del modello
+n_epochs = 10
+history = cnn_model.fit(np.array(train_x)/255, to_categorical(np.array(train_y_int), num_classes=2), epochs=n_epochs, validation_split= 0.2, verbose=1)
+test_loss, test_acc = cnn_model.evaluate(test_x, test_y_int, verbose=0)
+
+y_pred_prob = cnn_model.predict(test_x)
+y_pred = np.argmax(y_pred_prob, axis=1)
+
+# Salvare le metriche, le etichette vere e predette
+results = {
+    'history': history.history,
+    'test_loss': test_loss,
+    'test_accuracy': test_acc,
+    'true_labels': test_y.flatten(),
+    'predicted_labels': y_pred,
+    'predicted_probabilities': y_pred_prob,
+    'true_features': test_x
+}
+
+ #COMPILAZIONE DEL MODELLO
+ #ADDESTRAMENTO DEL MODELLO
+#history_cnn = cnn_model.fit(
 #    train_data,
-#    validation_data=(test_x, to_categorical(test_y_int, num_classes=2)),
-#    epochs=10,
-#    verbose=1
-# )
+  #  validation_data=(test_x, to_categorical(test_y_int, num_classes=2)),
+ #   epochs=10,
+   # verbose=1
+#)
 # PLOTS
 
